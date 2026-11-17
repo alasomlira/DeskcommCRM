@@ -34,6 +34,12 @@ services:
     environment:
       SUPABASE_DB_ADMIN_URL: ""
       EVENT_LOG_WORKER_DRAINS: ${EVENT_LOG_WORKER_DRAINS:-true}
+      # Explicitly declared so Coolify passes these values to the Next.js app.
+      # `env_file` alone does not expose undeclared Compose variables in all
+      # Coolify deployment modes.
+      WAHA_API_BASE_URL: ${WAHA_API_BASE_URL:-http://waha:3000}
+      WAHA_API_KEY: ${WAHA_API_KEY:?Set WAHA_API_KEY in Coolify}
+      WAHA_WEBHOOK_BASE_URL: ${WAHA_WEBHOOK_BASE_URL:-http://app:3000}
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -60,7 +66,7 @@ services:
     mem_limit: ${WORKER_MEM_LIMIT:-512m}
     env_file: .env
     environment:
-      WAHA_API_BASE_URL: http://waha:3000
+      WAHA_API_BASE_URL: ${WAHA_API_BASE_URL:-http://waha:3000}
     depends_on:
       app:
         condition: service_healthy
