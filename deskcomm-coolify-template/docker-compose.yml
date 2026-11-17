@@ -1,0 +1,142 @@
+name: deskcommcrm
+
+# Coolify template: Supabase Cloud + an existing Cloudflare Tunnel container.
+# The tunnel container must also be connected to TUNNEL_NETWORK and its public
+# hostname must target http://deskcommcrm-app:3000.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  bootstrap:
+    image: postgres:17-alpine
+    restart: "no"
+    env_file: .env
+    environment:
+      OWNER_EMAIL: ${OWNER_EMAIL:?Set OWNER_EMAIL in Coolify}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:?Set OWNER_PASSWORD in Coolify}
+      APP_LOCALE: ${APP_LOCALE:-pt-BR}
+    volumes:
+      - ./supabase/baseline.sql:/schema/baseline.sql:ro
+      - ./scripts/bootstrap-supabase.sh:/bootstrap.sh:ro
+      - bootstrap-state:/state
+    command: ["/bin/sh", "/bootstrap.sh"]
+    networks: [internal]
+
+  app:
+    image: ${APP_IMAGE:-ghcr.io/melgarafael/deskcommcrm:stable}
+    restart: unless-stopped
+    mem_limit: ${APP_MEM_LIMIT:-768m}
+    env_file: .env
+    environment:
+      SUPABASE_DB_ADMIN_URL: ""
+      EVENT_LOG_WORKER_DRAINS: ${EVENT_LOG_WORKER_DRAINS:-true}
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      srh:
+        condition: service_started
+      waha:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(3000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *default-logging
+    networks:
+      internal: {}
+      tunnel:
+        aliases:
+          - ${TUNNEL_APP_ALIAS:-deskcommcrm-app}
+
+  worker:
+    image: ${WORKER_IMAGE:-ghcr.io/melgarafael/deskcomm-worker:stable}
+    restart: unless-stopped
+    mem_limit: ${WORKER_MEM_LIMIT:-512m}
+    env_file: .env
+    environment:
+      WAHA_API_BASE_URL: http://waha:3000
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+    networks: [internal]
+
+  scheduler:
+    image: ${SCHEDULER_IMAGE:-ghcr.io/melgarafael/deskcomm-scheduler:stable}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: UTC
+      INTERNAL_SECRET: ${INTERNAL_SECRET:?Set INTERNAL_SECRET in Coolify}
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *default-logging
+    networks: [internal]
+
+  waha:
+    image: ${WAHA_IMAGE:-devlikeapro/waha:latest-2026.7.2}
+    restart: unless-stopped
+    mem_limit: ${WAHA_MEM_LIMIT:-1280m}
+    environment:
+      WAHA_API_KEY: "sha512:${WAHA_API_KEY_SHA512:?Set WAHA_API_KEY_SHA512 in Coolify}"
+      WHATSAPP_HOOK_URL: ${WAHA_WEBHOOK_BASE_URL:?Set WAHA_WEBHOOK_BASE_URL}/api/v1/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: "message.any,message.ack,message.edited,message.revoked,session.status,state.change"
+      WHATSAPP_HOOK_HMAC: ${WAHA_HMAC_SECRET:?Set WAHA_HMAC_SECRET in Coolify}
+      WHATSAPP_DEFAULT_ENGINE: ${WHATSAPP_DEFAULT_ENGINE:-NOWEB}
+      WHATSAPP_RESTART_ALL_SESSIONS: ${WHATSAPP_RESTART_ALL_SESSIONS:-True}
+      WAHA_DASHBOARD_ENABLED: "false"
+    volumes:
+      - waha-data:/app/.sessions
+      - waha-media:/app/.media
+    logging: *default-logging
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    logging: *default-logging
+    networks: [internal]
+
+  srh:
+    image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
+    restart: unless-stopped
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN:?Set SRH_TOKEN in Coolify}
+      SRH_CONNECTION_STRING: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+    networks: [internal]
+
+volumes:
+  bootstrap-state:
+  waha-data:
+  waha-media:
+
+networks:
+  internal:
+    driver: bridge
+  tunnel:
+    external: true
+    name: ${TUNNEL_NETWORK:-coolify}
+
