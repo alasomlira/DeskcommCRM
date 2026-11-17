@@ -29,6 +29,10 @@ The template does not create a Redis container. It keeps the small `srh` bridge
 because DeskcommCRM uses the Upstash-compatible REST protocol; `srh` connects to
 your existing Redis through `EXTERNAL_REDIS_URL`.
 
+Generate `WAHA_API_KEY` as a random secret and put its SHA-512 hex digest in
+`WAHA_API_KEY_SHA512`. The CRM uses the plain key internally; WAHA stores only
+its hash.
+
 On the first deploy, `bootstrap` enables the required database extensions,
 applies `supabase/baseline.sql`, creates the owner in Supabase Auth, and promotes
 that account to platform administrator. Its persistent marker prevents repeated
