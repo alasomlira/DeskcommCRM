@@ -29,6 +29,11 @@ The template does not create a Redis container. It keeps the small `srh` bridge
 because DeskcommCRM uses the Upstash-compatible REST protocol; `srh` connects to
 your existing Redis through `EXTERNAL_REDIS_URL`.
 
+Set `UPSTASH_REDIS_REST_URL=http://srh:80` and make
+`UPSTASH_REDIS_REST_TOKEN` exactly equal to `SRH_TOKEN`. The WAHA URLs are also
+internal: `WAHA_API_BASE_URL=http://waha:3000` and
+`WAHA_WEBHOOK_BASE_URL=http://app:3000`.
+
 Generate `WAHA_API_KEY` as a random secret and put its SHA-512 hex digest in
 `WAHA_API_KEY_SHA512`. The CRM uses the plain key internally; WAHA stores only
 its hash.
