@@ -13,6 +13,10 @@ container, expose host ports, or install Supabase locally.
    hostname service to `http://deskcommcrm-app:3000`.
 3. In Supabase Auth URL Configuration, add `https://crm.example.com/auth/confirm`
    and set the Site URL to `https://crm.example.com`.
+4. Connect the existing Redis container and this stack to `REDIS_NETWORK`. Set
+   `EXTERNAL_REDIS_URL` with the Redis container hostname and a dedicated logical
+   database, such as `/2`. Do not share n8n's Redis database index: the CRM will
+   write rate-limit and debounce keys there.
 
 ## Coolify
 
@@ -20,6 +24,10 @@ Create a Git-based **Docker Compose Application** from the fork. Set the Compose
 file path to `deskcomm-coolify-template/docker-compose.yml`, then paste the
 values from `.env.coolify.example` in Environment Variables. Also copy every
 required application secret from `.env.hostgator.example`; never commit them.
+
+The template does not create a Redis container. It keeps the small `srh` bridge
+because DeskcommCRM uses the Upstash-compatible REST protocol; `srh` connects to
+your existing Redis through `EXTERNAL_REDIS_URL`.
 
 On the first deploy, `bootstrap` enables the required database extensions,
 applies `supabase/baseline.sql`, creates the owner in Supabase Auth, and promotes

@@ -103,30 +103,15 @@ services:
     logging: *default-logging
     networks: [internal]
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-    logging: *default-logging
-    networks: [internal]
-
   srh:
     image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
     restart: unless-stopped
     environment:
       SRH_MODE: env
       SRH_TOKEN: ${SRH_TOKEN:?Set SRH_TOKEN in Coolify}
-      SRH_CONNECTION_STRING: redis://redis:6379
-    depends_on:
-      redis:
-        condition: service_healthy
+      SRH_CONNECTION_STRING: ${EXTERNAL_REDIS_URL:?Set EXTERNAL_REDIS_URL in Coolify}
     logging: *default-logging
-    networks: [internal]
+    networks: [internal, redis-external]
 
 volumes:
   bootstrap-state:
@@ -139,4 +124,7 @@ networks:
   tunnel:
     external: true
     name: ${TUNNEL_NETWORK:-coolify}
+  redis-external:
+    external: true
+    name: ${REDIS_NETWORK:-coolify}
 
