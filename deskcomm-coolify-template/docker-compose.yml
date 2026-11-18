@@ -20,11 +20,11 @@ services:
       OWNER_PASSWORD: ${OWNER_PASSWORD:?Set OWNER_PASSWORD in Coolify}
       APP_LOCALE: ${APP_LOCALE:-pt-BR}
     volumes:
-      - ./supabase/baseline.sql:/schema/baseline.sql:ro
-      # Coolify runs Compose from the repository base directory, even when the
-      # Compose definition itself lives in this subdirectory.
-      - ./deskcomm-coolify-template/scripts/bootstrap-supabase.sh:/bootstrap.sh:ro
       - bootstrap-state:/state
+    configs:
+      - source: bootstrap-script
+        target: /bootstrap.sh
+        mode: 0555
     command: ["/bin/sh", "/bootstrap.sh"]
     networks: [internal]
 
@@ -135,4 +135,61 @@ networks:
   redis-external:
     external: true
     name: ${REDIS_NETWORK:-coolify}
+
+configs:
+  # Kept inside Compose because Coolify deploys the Compose definition but does
+  # not guarantee arbitrary helper-file bind mounts in its artifact directory.
+  bootstrap-script:
+    content: |
+      #!/bin/sh
+      set -eu
+      if [ -f /state/complete ]; then
+        echo "bootstrap: already completed"
+        exit 0
+      fi
+
+      : "$${SUPABASE_DB_URL:?SUPABASE_DB_URL is required}"
+      : "$${NEXT_PUBLIC_SUPABASE_URL:?NEXT_PUBLIC_SUPABASE_URL is required}"
+      : "$${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}"
+      : "$${OWNER_EMAIL:?OWNER_EMAIL is required}"
+      : "$${OWNER_PASSWORD:?OWNER_PASSWORD is required}"
+
+      apk add --no-cache curl jq >/dev/null
+      echo "bootstrap: checking Supabase schema"
+      existing="$$(psql "$$SUPABASE_DB_URL" -tAc "select 1 from information_schema.tables where table_schema='public' and table_name='organizations' limit 1" | tr -d '[:space:]')"
+      if [ "$$existing" != "1" ]; then
+        echo "bootstrap: applying extensions and baseline schema"
+        psql "$$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "create extension if not exists vector with schema public; create extension if not exists citext with schema public; create extension if not exists pg_trgm with schema public;"
+        curl -fsSL https://raw.githubusercontent.com/melgarafael/DeskcommCRM/main/supabase/baseline.sql -o /tmp/baseline.sql
+        psql "$$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f /tmp/baseline.sql
+      fi
+
+      payload="$$(jq -nc --arg email "$$OWNER_EMAIL" --arg password "$$OWNER_PASSWORD" --arg locale "$${APP_LOCALE:-pt-BR}" '{email:$$email,password:$$password,email_confirm:true,user_metadata:{locale:$$locale}}')"
+      status="$$(curl -sS -o /tmp/create-owner.json -w '%{http_code}' -X POST "$$NEXT_PUBLIC_SUPABASE_URL/auth/v1/admin/users" -H "apikey: $$SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $$SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d "$$payload")"
+      case "$$status" in 200|201|422) ;; *) cat /tmp/create-owner.json >&2; exit 1;; esac
+
+      echo "bootstrap: creating owner organization and administrator role"
+      psql "$$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v owner_email="$$OWNER_EMAIL" -v app_locale="$${APP_LOCALE:-pt-BR}" <<'SQL'
+      select set_config('deskcomm.owner_email', :'owner_email', false);
+      select set_config('deskcomm.app_locale', :'app_locale', false);
+      do $$$$
+      declare v_uid uuid; v_org uuid;
+      begin
+        select id into v_uid from auth.users where email = current_setting('deskcomm.owner_email');
+        if v_uid is null then raise exception 'owner was not created in Supabase Auth'; end if;
+        select id into v_org from public.organizations where slug = 'minha-empresa';
+        if v_org is null then
+          insert into public.organizations (slug, display_name, legal_name, locale, created_by)
+          values ('minha-empresa', 'Minha Empresa', 'Minha Empresa', current_setting('deskcomm.app_locale'), v_uid) returning id into v_org;
+        end if;
+        insert into public.user_organizations (user_id, organization_id, role, accepted_at)
+        values (v_uid, v_org, 'admin', now()) on conflict (user_id, organization_id) do update set role = 'admin', revoked_at = null;
+        if not exists (select 1 from public.platform_admins where user_id = v_uid and revoked_at is null) then
+          insert into public.platform_admins (user_id, granted_by, scope, mfa_required, reason)
+          values (v_uid, v_uid, 'full', false, 'Bootstrap Coolify');
+        end if;
+      end $$$$;
+      SQL
+      touch /state/complete
+      echo "bootstrap: completed"
 
