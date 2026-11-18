@@ -1,5 +1,13 @@
 # DeskcommCRM on Coolify with an existing Cloudflare Tunnel
 
+## Marca deste fork
+
+O template já usa **Brum - CRM** como nome padrão. O CRM gera o favicon em
+runtime, com a letra **B** e a cor da marca, sem depender de um arquivo estático.
+Para trocar a cor, ajuste `APP_ACCENT_HEX` nas variáveis do Coolify. Não é
+necessário configurar `WACALLS_API_BASE_URL` se você não for usar chamadas de
+voz: remova essa variável do Coolify ou deixe-a ausente.
+
 This template is for a Cloudflare Tunnel that already runs as a Docker container
 in Coolify and for Supabase Cloud. It deliberately does not create a `cloudflared`
 container, expose host ports, or install Supabase locally.

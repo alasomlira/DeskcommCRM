@@ -36,6 +36,11 @@ services:
     environment:
       SUPABASE_DB_ADMIN_URL: ""
       EVENT_LOG_WORKER_DRAINS: ${EVENT_LOG_WORKER_DRAINS:-true}
+      # White-label defaults for this fork. The app generates `/icon` at
+      # runtime, so APP_NAME makes the tab title and favicon show "Brum - CRM"
+      # and a B icon without baking an asset into the shared image.
+      APP_NAME: "${APP_NAME:-Brum - CRM}"
+      APP_ACCENT_HEX: "${APP_ACCENT_HEX:-#86a77f}"
       # Explicitly declared so Coolify passes these values to the Next.js app.
       # `env_file` alone does not expose undeclared Compose variables in all
       # Coolify deployment modes.
