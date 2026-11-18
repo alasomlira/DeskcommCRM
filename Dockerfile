@@ -8,10 +8,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 COPY package.json pnpm-lock.yaml ./
 COPY patches ./patches
-# Coolify can expose NODE_ENV=production at build time. Explicitly requesting
-# development dependencies keeps Next, TypeScript and the build toolchain
-# available in this disposable stage; the final runner remains production-only.
-RUN pnpm install --frozen-lockfile --prod=false
+RUN pnpm install --frozen-lockfile
 
 # ---- build: gera .next/standalone ----
 FROM node:22-alpine AS build
