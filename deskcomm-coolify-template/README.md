@@ -8,11 +8,6 @@ Para trocar a cor, ajuste `APP_ACCENT_HEX` nas variáveis do Coolify. Não é
 necessário configurar `WACALLS_API_BASE_URL` se você não for usar chamadas de
 voz: remova essa variável do Coolify ou deixe-a ausente.
 
-O serviço `app` é compilado a partir deste fork. Isso é necessário para que
-alterações de código (como o redirecionamento de `/` para `/login`) sejam
-aplicadas. Durante o deploy, deixe ao menos 8 GB de RAM disponíveis e mantenha
-`NODE_HEAP_MB=4096`; depois do build o consumo volta ao limite normal do app.
-
 This template is for a Cloudflare Tunnel that already runs as a Docker container
 in Coolify and for Supabase Cloud. It deliberately does not create a `cloudflared`
 container, expose host ports, or install Supabase locally.

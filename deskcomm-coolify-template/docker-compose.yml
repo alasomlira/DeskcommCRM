@@ -29,14 +29,7 @@ services:
     networks: [internal]
 
   app:
-    # Build from this fork instead of pulling only the upstream ready-made
-    # image. Runtime variables change the branding, but source customizations
-    # (for example the anonymous-home redirect) require this local build.
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        NODE_HEAP_MB: ${NODE_HEAP_MB:-4096}
+    image: ${APP_IMAGE:-ghcr.io/melgarafael/deskcommcrm:stable}
     restart: unless-stopped
     mem_limit: ${APP_MEM_LIMIT:-768m}
     env_file: .env
