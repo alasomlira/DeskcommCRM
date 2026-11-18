@@ -33,7 +33,9 @@ services:
     # image. Runtime variables change the branding, but source customizations
     # (for example the anonymous-home redirect) require this local build.
     build:
-      context: ..
+      # Coolify sets the Compose project directory to the cloned repository
+      # root even when this file lives in a subdirectory.
+      context: .
       dockerfile: Dockerfile
       args:
         NODE_HEAP_MB: ${NODE_HEAP_MB:-4096}
