@@ -21,7 +21,9 @@ services:
       APP_LOCALE: ${APP_LOCALE:-pt-BR}
     volumes:
       - ./supabase/baseline.sql:/schema/baseline.sql:ro
-      - ./scripts/bootstrap-supabase.sh:/bootstrap.sh:ro
+      # Coolify runs Compose from the repository base directory, even when the
+      # Compose definition itself lives in this subdirectory.
+      - ./deskcomm-coolify-template/scripts/bootstrap-supabase.sh:/bootstrap.sh:ro
       - bootstrap-state:/state
     command: ["/bin/sh", "/bootstrap.sh"]
     networks: [internal]

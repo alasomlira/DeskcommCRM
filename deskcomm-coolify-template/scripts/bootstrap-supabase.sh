@@ -4,6 +4,7 @@ set -eu
 # This service is deliberately idempotent. It only provisions an empty Supabase
 # project, then records completion in its own persistent volume.
 if [ -f /state/complete ]; then
+  echo "bootstrap: already completed"
   exit 0
 fi
 
@@ -15,9 +16,12 @@ fi
 
 apk add --no-cache curl jq >/dev/null
 
+echo "bootstrap: checking Supabase schema"
+
 existing="$(psql "$SUPABASE_DB_URL" -tAc "select 1 from information_schema.tables where table_schema='public' and table_name='organizations' limit 1" | tr -d '[:space:]')"
 
 if [ "$existing" != "1" ]; then
+  echo "bootstrap: applying extensions and baseline schema"
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "create extension if not exists vector with schema public; create extension if not exists citext with schema public; create extension if not exists pg_trgm with schema public;"
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f /schema/baseline.sql
 fi
@@ -28,6 +32,8 @@ curl -fsS -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/admin/users" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -d "$payload" >/dev/null || true
+
+echo "bootstrap: creating owner organization and administrator role"
 
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v owner_email="$OWNER_EMAIL" -v app_locale="${APP_LOCALE:-pt-BR}" <<'SQL'
 select set_config('deskcomm.owner_email', :'owner_email', false);
@@ -57,4 +63,5 @@ end $$;
 SQL
 
 touch /state/complete
+echo "bootstrap: completed"
 
