@@ -41,6 +41,9 @@ services:
       # and a B icon without baking an asset into the shared image.
       APP_NAME: "${APP_NAME:-Brum - CRM}"
       APP_ACCENT_HEX: "${APP_ACCENT_HEX:-#86a77f}"
+      # Cloudflare writes the real visitor address here. Passing it to the app
+      # keeps login/signup rate limits per visitor instead of per proxy/VPS.
+      IP_DO_CLIENTE_HEADER: ${IP_DO_CLIENTE_HEADER:-cf-connecting-ip}
       # Explicitly declared so Coolify passes these values to the Next.js app.
       # `env_file` alone does not expose undeclared Compose variables in all
       # Coolify deployment modes.

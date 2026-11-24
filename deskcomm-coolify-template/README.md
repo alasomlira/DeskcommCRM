@@ -8,6 +8,10 @@ Para trocar a cor, ajuste `APP_ACCENT_HEX` nas variáveis do Coolify. Não é
 necessário configurar `WACALLS_API_BASE_URL` se você não for usar chamadas de
 voz: remova essa variável do Coolify ou deixe-a ausente.
 
+Como a instalação usa Cloudflare Tunnel, o template encaminha
+`cf-connecting-ip` para o app. Isso mantém os limites de login e cadastro por
+visitante, em vez de colocar todos os acessos no mesmo limite da VPS.
+
 This template is for a Cloudflare Tunnel that already runs as a Docker container
 in Coolify and for Supabase Cloud. It deliberately does not create a `cloudflared`
 container, expose host ports, or install Supabase locally.
